@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Shift Hours Desk</title>
+<style>*{box-sizing:border-box}body{margin:0;background:#eef3ef;color:#192d26;font:16px/1.5 "Segoe UI",sans-serif}main{max-width:760px;margin:5vh auto;padding:clamp(20px,5vw,48px);background:white;border-top:6px solid #226647;border-radius:8px}h1{font-size:clamp(30px,5vw,48px);letter-spacing:-.045em;line-height:1.05;margin:0 0 18px}p{color:#354c41}label{display:block;font-weight:600;margin:14px 0}.pair{display:grid;grid-template-columns:1fr 1fr;gap:18px}input:not([type=checkbox]),select,textarea{display:block;width:100%;padding:10px;border:1px solid #789a89;border-radius:5px;font:inherit;background:white}button{padding:10px 16px;background:#175e40;color:white;border:0;border-radius:6px;font:inherit;cursor:pointer}button:disabled{opacity:.45}canvas{max-width:100%;height:auto}li{margin:.5em 0}.small{padding:3px 8px;font-size:.85em;margin-left:8px}article{border:2px solid #244b37;border-radius:6px;padding:18px;margin:14px 0;break-inside:avoid;overflow-wrap:anywhere}article h2{margin:2px 0}article p{white-space:pre-wrap}@media(max-width:480px){.pair{grid-template-columns:1fr;gap:0}}@media print{body,main{background:white;margin:0;padding:0;border:0;max-width:none}main>:not(#labels),article button{display:none}article{margin:0 0 12mm}}</style>
+<main><h1>Shift Hours Desk</h1><p>Add shifts, subtract unpaid breaks, and export a timesheet. An end time earlier than the start counts as the following day.</p><form id="entry"><label>Shift date<input id="date" type="date" required></label><div class="pair"><label>Start<input id="start" type="time" required></label><label>End<input id="end" type="time" required></label></div><label>Unpaid break (minutes)<input id="pause" type="number" min="0" step="1" value="0" required></label><button>Add shift</button></form><p id="status" role="status"></p><ul id="rows"></ul><strong id="total">Total · 0 h 0 min</strong><p><button id="export" disabled>Export CSV</button></p></main>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000)}
+
+const shifts=[];
+const mins=t=>Number(t.slice(0,2))*60+Number(t.slice(3));
+const duration=n=>Math.floor(n/60)+' h '+(n%60)+' min';
+function refresh(){
+  $('rows').replaceChildren();
+  shifts.forEach((s,i)=>{
+    const row=document.createElement('li');
+    row.append(s.date+' · '+s.start+'–'+s.end+' · '+duration(s.net)+' ');
+    const remove=document.createElement('button');remove.textContent='Remove';remove.className='small';
+    remove.onclick=()=>{shifts.splice(i,1);refresh()};row.append(remove);$('rows').append(row);
+  });
+  $('total').textContent='Total · '+duration(shifts.reduce((sum,s)=>sum+s.net,0));$('export').disabled=!shifts.length;
+}
+$('entry').onsubmit=e=>{
+  e.preventDefault();const start=$('start').value,end=$('end').value;
+  const gross=(mins(end)-mins(start)+1440)%1440;
+  const pause=$('pause').valueAsNumber;
+  if(!gross||pause>gross){$('status').textContent='Check shift length and break. Start and end must differ.';return}
+  shifts.push({date:$('date').value,start,end,pause,net:gross-pause});$('status').textContent='Shift added.';refresh();
+};
+$('export').onclick=()=>download(new Blob([['Date,Start,End,Break minutes,Worked minutes',...shifts.map(s=>[s.date,s.start,s.end,s.pause,s.net].join(','))].join('\r\n')],{type:'text/csv'}),'timesheet.csv');
+</script></html>
